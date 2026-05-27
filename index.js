@@ -7,10 +7,19 @@ app.use(express.json())
 app.use(express.static('public'))
  
 // Tokens de tu cuenta Spotify
-let spotifyTokens = {
-  access_token: null,
-  refresh_token: null,
-  expires_at: null
+const fs = require('fs')
+const TOKENS_FILE = './tokens.json'
+
+// Cargar tokens guardados si existen
+let spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
+if (fs.existsSync(TOKENS_FILE)) {
+  try {
+    spotifyTokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'))
+  } catch (e) {}
+}
+
+function saveTokens() {
+  fs.writeFileSync(TOKENS_FILE, JSON.stringify(spotifyTokens))
 }
  
 // Playlist activa (la que ven los clientes)
@@ -72,6 +81,7 @@ app.get('/callback', async (req, res) => {
       refresh_token: response.data.refresh_token,
       expires_at: Date.now() + (response.data.expires_in * 1000)
     }
+    saveTokens()
  
     res.redirect('/admin.html')
   } catch (error) {
@@ -104,6 +114,7 @@ async function getValidToken() {
     )
     spotifyTokens.access_token = response.data.access_token
     spotifyTokens.expires_at = Date.now() + (response.data.expires_in * 1000)
+    saveTokens()
   }
  
   return spotifyTokens.access_token
