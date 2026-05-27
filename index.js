@@ -282,7 +282,7 @@ app.post('/queue', async (req, res) => {
  
 // ─── SERVIDOR ─────────────────────────────────────────────────────────────────
  
-app.listen(process.env.PORT, '127.0.0.1', () => {
+app.listen(process.env.PORT, '0.0.0.0', () => {
   console.log(`\nServidor corriendo en http://127.0.0.1:${process.env.PORT}`)
   console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
 })
