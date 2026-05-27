@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Vianda & Coffee</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <h1>🎵 Vianda & Coffee</h1>
+  <h2>Panel de administrador</h2>
+
+  <!-- Playlist activa -->
+  <div class="section">
+    <h3>Playlist activa</h3>
+    <div id="activePlaylist"></div>
+  </div>
+
+  <!-- Mis playlists -->
+  <div class="section">
+    <h3>Mis playlists</h3>
+    <div id="myPlaylists"></div>
+  </div>
+
+  <!-- Buscar playlists -->
+  <div class="section">
+    <h3>Buscar playlists en Spotify</h3>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Nombre de playlist..." />
+      <button onclick="searchPlaylists()">Buscar</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <div id="status"></div>
+
+    <!-- Buscar canciones sueltas -->
+  <div class="section">
+    <h3>Agregar canción suelta</h3>
+    <div class="search-bar">
+      <input type="text" id="songSearchInput" placeholder="Nombre de canción o artista..." />
+      <button onclick="searchSongs()">Buscar</button>
+    </div>
+    <div id="songSearchResults"></div>
+  </div>
+
+  <script src="/js/admin.js"></script>
+
+</body>
+</html>

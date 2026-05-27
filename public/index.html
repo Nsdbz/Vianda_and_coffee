@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vianda & Coffee</title>
+  <link rel="stylesheet" href="/css/client.css">
+</head>
+<body>
+
+  <header>
+    <h1>🎵 Vianda & Coffee</h1>
+    <p>Elige una canción para agregar a la cola</p>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Buscar canción o artista..." oninput="filterSongs()" />
+    </div>
+  </header>
+
+  <div id="songList"></div>
+
+  <div id="toast"></div>
+
+  <script src="/js/client.js"></script>
+
+</body>
+</html>
