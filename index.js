@@ -7,21 +7,27 @@ app.use(express.json())
 app.use(express.static('public'))
  
 // Tokens de tu cuenta Spotify
-const fs = require('fs')
-const TOKENS_FILE = './tokens.json'
+const { Redis } = require('@upstash/redis')
 
-// Cargar tokens guardados si existen
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN
+})
+
 let spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
-if (fs.existsSync(TOKENS_FILE)) {
+
+async function loadTokens() {
   try {
-    spotifyTokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'))
+    const saved = await redis.get('spotify_tokens')
+    if (saved) spotifyTokens = saved
   } catch (e) {}
 }
 
-function saveTokens() {
-  fs.writeFileSync(TOKENS_FILE, JSON.stringify(spotifyTokens))
+async function saveTokens() {
+  await redis.set('spotify_tokens', spotifyTokens)
 }
- 
+
+loadTokens()
 // Playlist activa (la que ven los clientes)
 let activePlaylist = {
   id: null,
