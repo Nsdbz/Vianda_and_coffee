@@ -87,13 +87,10 @@ app.get('/callback', async (req, res) => {
       refresh_token: response.data.refresh_token,
       expires_at: Date.now() + (response.data.expires_in * 1000)
     }
-    console.log('Guardando tokens:', JSON.stringify(spotifyTokens).substring(0, 50))
     await saveTokens()
-    console.log('Tokens guardados en Upstash')
 
     res.redirect('/admin.html')
   } catch (error) {
-    console.log('Error en callback:', error.message)
     res.send('❌ Algo salió mal. Revisa la terminal.')
   }
 })
