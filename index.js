@@ -27,6 +27,17 @@ async function saveTokens() {
   await redis.set('spotify_tokens', spotifyTokens)
 }
 
+async function loadPlaylist() {
+  try {
+    const saved = await redis.get('active_playlist')
+    if (saved) activePlaylist = saved
+  } catch (e) {}
+}
+
+async function savePlaylist() {
+  await redis.set('active_playlist', activePlaylist)
+}
+
 // ─── PLAYLIST ACTIVA ──────────────────────────────────────────────────────────
 
 let activePlaylist = {
@@ -219,9 +230,9 @@ app.post('/admin/activate-playlist', async (req, res) => {
       url = response.data.next
     }
 
-    activePlaylist = { id, name, image, songs }
-    res.json({ ok: true, name, total: songs.length })
-
+  activePlaylist = { id, name, image, songs }
+  await savePlaylist()
+  res.json({ ok: true, name, total: songs.length })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -301,7 +312,7 @@ app.post('/queue', async (req, res) => {
 
 // ─── SERVIDOR ─────────────────────────────────────────────────────────────────
 
-loadTokens().then(() => {
+Promise.all([loadTokens(), loadPlaylist()]).then(() => {
   app.listen(process.env.PORT, '0.0.0.0', () => {
     console.log(`\nServidor corriendo en http://127.0.0.1:${process.env.PORT}`)
     console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
