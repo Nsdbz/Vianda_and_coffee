@@ -1,56 +1,48 @@
+
 require('dotenv').config()
 const express = require('express')
 const axios = require('axios')
 const { Redis } = require('@upstash/redis')
-
+ 
 const app = express()
 app.use(express.json())
 app.use(express.static('public'))
-
+ 
 // ─── UPSTASH REDIS ────────────────────────────────────────────────────────────
-
+ 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN
 })
-
+ 
 let spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
-
+let activePlaylist = { id: null, name: null, songs: [] }
+const requestLog = {}
+ 
 async function loadTokens() {
   try {
     const saved = await redis.get('spotify_tokens')
     if (saved) spotifyTokens = saved
   } catch (e) {}
 }
-
+ 
 async function saveTokens() {
   await redis.set('spotify_tokens', spotifyTokens)
 }
-
+ 
 async function loadPlaylist() {
   try {
     const saved = await redis.get('active_playlist')
     if (saved) activePlaylist = saved
   } catch (e) {}
 }
-
+ 
 async function savePlaylist() {
   await redis.set('active_playlist', activePlaylist)
 }
-
-// ─── PLAYLIST ACTIVA ──────────────────────────────────────────────────────────
-
-let activePlaylist = {
-  id: null,
-  name: null,
-  songs: []
-}
-
-// Registro de peticiones por IP (para el límite de 15 min)
-const requestLog = {}
-
+ 
 // ─── AUTENTICACIÓN ────────────────────────────────────────────────────────────
-
+ 
 app.get('/auth/login', (req, res) => {
   const scopes = [
     'user-read-playback-state',
@@ -62,17 +54,17 @@ app.get('/auth/login', (req, res) => {
     'playlist-read-private',
     'playlist-read-collaborative'
   ].join(' ')
-
+ 
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.SPOTIFY_CLIENT_ID,
     scope: scopes,
     redirect_uri: process.env.REDIRECT_URI
   })
-
+ 
   res.redirect(`https://accounts.spotify.com/authorize?${params}`)
 })
-
+ 
 app.get('/callback', async (req, res) => {
   const code = req.query.code
   try {
@@ -92,33 +84,33 @@ app.get('/callback', async (req, res) => {
         }
       }
     )
-
+ 
     spotifyTokens = {
       access_token: response.data.access_token,
       refresh_token: response.data.refresh_token,
       expires_at: Date.now() + (response.data.expires_in * 1000)
     }
     await saveTokens()
-
+ 
     res.redirect('/admin.html')
   } catch (error) {
     res.send('❌ Algo salió mal. Revisa la terminal.')
   }
 })
-
+ 
 app.get('/auth/reset', async (req, res) => {
   spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
   await saveTokens()
   res.redirect('/auth/login')
 })
-
+ 
 // ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
-
+ 
 async function getValidToken() {
   if (!spotifyTokens.access_token) {
     throw new Error('No autenticado. Ve a /auth/login')
   }
-
+ 
   if (Date.now() > spotifyTokens.expires_at - 60000) {
     const response = await axios.post(
       'https://accounts.spotify.com/api/token',
@@ -139,12 +131,12 @@ async function getValidToken() {
     spotifyTokens.expires_at = Date.now() + (response.data.expires_in * 1000)
     await saveTokens()
   }
-
+ 
   return spotifyTokens.access_token
 }
-
+ 
 // ─── ADMIN: playlists ─────────────────────────────────────────────────────────
-
+ 
 app.get('/admin/search-playlists', async (req, res) => {
   const { q } = req.query
   try {
@@ -164,7 +156,7 @@ app.get('/admin/search-playlists', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
-
+ 
 app.get('/admin/search', async (req, res) => {
   const { q } = req.query
   try {
@@ -184,7 +176,7 @@ app.get('/admin/search', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
-
+ 
 app.get('/admin/my-playlists', async (req, res) => {
   try {
     const token = await getValidToken()
@@ -204,15 +196,15 @@ app.get('/admin/my-playlists', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
-
+ 
 app.post('/admin/activate-playlist', async (req, res) => {
   const { id, name, image } = req.body
   try {
     const token = await getValidToken()
-
+ 
     let songs = []
     let url = `https://api.spotify.com/v1/playlists/${id}/items?limit=50`
-
+ 
     while (url) {
       const response = await axios.get(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -229,39 +221,42 @@ app.post('/admin/activate-playlist', async (req, res) => {
       songs = [...songs, ...tracks]
       url = response.data.next
     }
-
-  activePlaylist = { id, name, image, songs }
-  await savePlaylist()
-  res.json({ ok: true, name, total: songs.length })
+ 
+    activePlaylist = { id, name, image, songs }
+    await savePlaylist()
+    res.json({ ok: true, name, total: songs.length })
+ 
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
 })
-
+ 
 app.post('/admin/add-song', async (req, res) => {
   const { id, name, artist, album, image } = req.body
-
+ 
   if (!activePlaylist.id) {
     return res.status(400).json({ error: 'No hay playlist activa. Activa una primero.' })
   }
-
+ 
   if (activePlaylist.songs.find(s => s.id === id)) {
     return res.status(400).json({ error: 'La canción ya está en la lista' })
   }
-
+ 
   activePlaylist.songs.push({ id, name, artist, album, image })
+  await savePlaylist()
   res.json({ ok: true, total: activePlaylist.songs.length })
 })
-
-app.delete('/admin/remove-song/:id', (req, res) => {
+ 
+app.delete('/admin/remove-song/:id', async (req, res) => {
   if (!activePlaylist.id) {
     return res.status(400).json({ error: 'No hay playlist activa' })
   }
-
+ 
   activePlaylist.songs = activePlaylist.songs.filter(s => s.id !== req.params.id)
+  await savePlaylist()
   res.json({ ok: true, total: activePlaylist.songs.length })
 })
-
+ 
 app.get('/admin/active-playlist', (req, res) => {
   res.json({
     id: activePlaylist.id,
@@ -270,31 +265,31 @@ app.get('/admin/active-playlist', (req, res) => {
     total: activePlaylist.songs.length
   })
 })
-
+ 
 // ─── CLIENTE ──────────────────────────────────────────────────────────────────
-
+ 
 app.get('/songs', (req, res) => {
   res.json(activePlaylist.songs)
 })
-
+ 
 app.post('/queue', async (req, res) => {
   const { id } = req.body
-
+ 
   if (!activePlaylist.songs.find(s => s.id === id)) {
     return res.status(403).json({ error: 'Canción no permitida' })
   }
-
+ 
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
   const now = Date.now()
   const LIMIT_MS = 15 * 60 * 1000
-
+ 
   if (requestLog[ip] && now - requestLog[ip] < LIMIT_MS) {
     const remaining = Math.ceil((LIMIT_MS - (now - requestLog[ip])) / 60000)
     return res.status(429).json({
       error: `Puedes pedir otra canción en ${remaining} minuto${remaining !== 1 ? 's' : ''}`
     })
   }
-
+ 
   try {
     const token = await getValidToken()
     await axios.post(
@@ -302,16 +297,16 @@ app.post('/queue', async (req, res) => {
       {},
       { headers: { 'Authorization': `Bearer ${token}` } }
     )
-
+ 
     requestLog[ip] = now
     res.json({ ok: true, message: '¡Canción agregada a la cola!' })
   } catch (error) {
     res.status(500).json({ error: 'No se pudo agregar. ¿Spotify está reproduciendo en algún dispositivo?' })
   }
 })
-
+ 
 // ─── SERVIDOR ─────────────────────────────────────────────────────────────────
-
+ 
 Promise.all([loadTokens(), loadPlaylist()]).then(() => {
   app.listen(process.env.PORT, '0.0.0.0', () => {
     console.log(`\nServidor corriendo en http://127.0.0.1:${process.env.PORT}`)
