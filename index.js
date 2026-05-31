@@ -1,4 +1,3 @@
-
 require('dotenv').config()
 const express = require('express')
 const axios = require('axios')
@@ -17,7 +16,9 @@ const redis = new Redis({
  
 let spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
 let activePlaylist = { id: null, name: null, songs: [] }
-const requestLog = {}
+ 
+// Peticiones en vuelo — solo en memoria (se limpia sola en milisegundos)
+const pendingRequests = new Set()
  
 async function loadTokens() {
   try {
@@ -39,6 +40,26 @@ async function loadPlaylist() {
  
 async function savePlaylist() {
   await redis.set('active_playlist', activePlaylist)
+}
+ 
+// ─── REQUEST LOG en Upstash ───────────────────────────────────────────────────
+ 
+const LIMIT_MS = 15 * 60 * 1000
+const REQUEST_LOG_KEY = 'request_log'
+ 
+async function getRequestLog() {
+  try {
+    const saved = await redis.get(REQUEST_LOG_KEY)
+    return saved || {}
+  } catch (e) {
+    return {}
+  }
+}
+ 
+async function saveRequestLog(log) {
+  try {
+    await redis.set(REQUEST_LOG_KEY, log)
+  } catch (e) {}
 }
  
 // ─── AUTENTICACIÓN ────────────────────────────────────────────────────────────
@@ -273,22 +294,34 @@ app.get('/songs', (req, res) => {
 })
  
 app.post('/queue', async (req, res) => {
-  const { id } = req.body
+  const { id, clientId } = req.body
  
+  // Validar que la canción existe en la lista activa
   if (!activePlaylist.songs.find(s => s.id === id)) {
     return res.status(403).json({ error: 'Canción no permitida' })
   }
  
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
-  const now = Date.now()
-  const LIMIT_MS = 15 * 60 * 1000
+  // Usar clientId si viene, si no caer a IP (compatibilidad)
+  const identifier = clientId || req.headers['x-forwarded-for'] || req.socket.remoteAddress
  
-  if (requestLog[ip] && now - requestLog[ip] < LIMIT_MS) {
-    const remaining = Math.ceil((LIMIT_MS - (now - requestLog[ip])) / 60000)
+  // Verificar que no haya una petición en vuelo para este cliente
+  if (pendingRequests.has(identifier)) {
+    return res.status(429).json({ error: 'Ya tienes una petición en proceso, espera un momento' })
+  }
+ 
+  // Verificar límite de 15 minutos leyendo desde Upstash
+  const now = Date.now()
+  const log = await getRequestLog()
+ 
+  if (log[identifier] && now - log[identifier] < LIMIT_MS) {
+    const remaining = Math.ceil((LIMIT_MS - (now - log[identifier])) / 60000)
     return res.status(429).json({
       error: `Puedes pedir otra canción en ${remaining} minuto${remaining !== 1 ? 's' : ''}`
     })
   }
+ 
+  // Marcar como en proceso
+  pendingRequests.add(identifier)
  
   try {
     const token = await getValidToken()
@@ -298,10 +331,16 @@ app.post('/queue', async (req, res) => {
       { headers: { 'Authorization': `Bearer ${token}` } }
     )
  
-    requestLog[ip] = now
+    // Guardar timestamp en Upstash
+    log[identifier] = now
+    await saveRequestLog(log)
+ 
     res.json({ ok: true, message: '¡Canción agregada a la cola!' })
   } catch (error) {
     res.status(500).json({ error: 'No se pudo agregar. ¿Spotify está reproduciendo en algún dispositivo?' })
+  } finally {
+    // Siempre liberar la petición en vuelo
+    pendingRequests.delete(identifier)
   }
 })
  
@@ -313,3 +352,4 @@ Promise.all([loadTokens(), loadPlaylist()]).then(() => {
     console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
   })
 })
+ 
