@@ -344,6 +344,48 @@ app.post('/queue', async (req, res) => {
   }
 })
  
+// ─── NOW PLAYING & QUEUE ──────────────────────────────────────────────────────
+ 
+app.get('/now-playing', async (req, res) => {
+  try {
+    const token = await getValidToken()
+    const response = await axios.get('https://api.spotify.com/v1/me/player/currently-playing', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!response.data || !response.data.item) {
+      return res.json({ playing: false })
+    }
+    const track = response.data.item
+    res.json({
+      playing: response.data.is_playing,
+      name: track.name,
+      artist: track.artists[0].name,
+      image: track.album.images[1]?.url,
+      duration_ms: track.duration_ms,
+      progress_ms: response.data.progress_ms
+    })
+  } catch (error) {
+    res.json({ playing: false })
+  }
+})
+ 
+app.get('/queue-list', async (req, res) => {
+  try {
+    const token = await getValidToken()
+    const response = await axios.get('https://api.spotify.com/v1/me/player/queue', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const items = (response.data.queue || []).slice(0, 10).map(track => ({
+      name: track.name,
+      artist: track.artists[0].name,
+      image: track.album.images[2]?.url
+    }))
+    res.json(items)
+  } catch (error) {
+    res.json([])
+  }
+})
+ 
 // ─── SERVIDOR ─────────────────────────────────────────────────────────────────
  
 Promise.all([loadTokens(), loadPlaylist()]).then(() => {
@@ -352,4 +394,3 @@ Promise.all([loadTokens(), loadPlaylist()]).then(() => {
     console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
   })
 })
- 
