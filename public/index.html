@@ -35,37 +35,30 @@
       </div>
     </div>
 
-    <div class="header-center">
-      <div class="search-wrap">
-        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        <input type="text" id="searchInput" placeholder="Buscar canción o artista…" oninput="filterSongs()"/>
-      </div>
-    </div>
-
     <div class="header-right">
-      <div class="header-social">
-        <span class="soc-label">Síguenos</span>
-        <a class="soc-link" href="https://instagram.com/viandaandcoffee" target="_blank" title="Instagram">
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <rect x="2" y="2" width="20" height="20" rx="5"/>
-            <circle cx="12" cy="12" r="4"/>
-            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-          </svg>
-        </a>
-        <a class="soc-link" href="#" target="_blank" title="WhatsApp">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-        </a>
-      </div>
+      <a class="soc-link" href="https://www.instagram.com/viandaandcoffee?igsh=MTR6emgxZHNpcWowMQ==" target="_blank" title="Instagram">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="20" height="20" rx="5"/>
+          <circle cx="12" cy="12" r="4"/>
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+      </a>
       <div class="live-tag">
         <div class="live-dot"></div>
-        En vivo
+        <span>En vivo</span>
       </div>
     </div>
   </header>
+
+  <!-- SEARCH BAR -->
+  <div class="search-bar-row">
+    <div class="search-wrap">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Buscar canción o artista…" oninput="filterSongs()"/>
+    </div>
+  </div>
 
   <!-- MAIN -->
   <main class="main">
@@ -102,7 +95,7 @@
   </main>
 
   <!-- RIGHT PANEL -->
-  <aside class="panel">
+  <aside class="panel" id="queuePanel">
 
     <!-- QUEUE -->
     <div class="panel-section">
@@ -124,7 +117,7 @@
     <div class="social-section">
       <p class="social-title">Encuéntranos en</p>
       <div class="social-grid">
-        <a class="social-item" href="https://instagram.com/viandaandcoffee" target="_blank">
+        <a class="social-item" href="https://www.instagram.com/viandaandcoffee?igsh=MTR6emgxZHNpcWowMQ==" target="_blank">
           <div class="social-icon">
             <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <rect x="2" y="2" width="20" height="20" rx="5"/>
@@ -134,15 +127,6 @@
           </div>
           <span class="social-handle">@viandaandcoffee</span>
           <span class="social-sub">Instagram</span>
-        </a>
-        <a class="social-item" href="#" target="_blank">
-          <div class="social-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V9.5a8.16 8.16 0 004.77 1.52V7.57a4.85 4.85 0 01-1-.88z"/>
-            </svg>
-          </div>
-          <span class="social-handle">@viandaandcoffee</span>
-          <span class="social-sub">TikTok</span>
         </a>
         <a class="social-item" href="#" target="_blank">
           <div class="social-icon">
@@ -160,7 +144,7 @@
 
   <!-- FOOTER -->
   <footer class="footer">
-    <span class="f-left"><strong>Vianda &amp; Coffee</strong> · Café de Especialidad · Bogotá</span>
+    <span class="f-left"><strong>Vianda &amp; Coffee</strong> · Bogotá</span>
     <div class="f-stats">
       <div class="fstat"><span class="fstat-n" id="totalVotes">0</span><span class="fstat-l">pedidas</span></div>
       <div class="fstat"><span class="fstat-n" id="qCount">0</span><span class="fstat-l">en cola</span></div>
@@ -168,6 +152,20 @@
   </footer>
 
 </div>
+
+<!-- BOTÓN FLOTANTE VER COLA (solo móvil) -->
+<button class="fab-queue" id="fabQueue" onclick="scrollToQueue()">
+  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <line x1="8" y1="6" x2="21" y2="6"/>
+    <line x1="8" y1="12" x2="21" y2="12"/>
+    <line x1="8" y1="18" x2="21" y2="18"/>
+    <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
+  </svg>
+  <span>Ver cola</span>
+  <span class="fab-count" id="fabCount"></span>
+</button>
 
 <div class="toast" id="toastEl"></div>
 
