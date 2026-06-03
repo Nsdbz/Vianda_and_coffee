@@ -7,45 +7,64 @@
   <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
-
+ 
   <h1>🎵 Vianda & Coffee</h1>
   <h2>Panel de administrador</h2>
-
-  <!-- Playlist activa -->
+ 
+  <!-- ── ESTADÍSTICAS ────────────────────────────────────────────────── -->
+  <div class="section">
+    <h3>
+      📊 Estadísticas
+      <span class="total-badge">
+        <span id="totalRequestsCount">0</span> peticiones totales
+      </span>
+    </h3>
+    <div id="topSongsList"></div>
+  </div>
+ 
+  <!-- ── SUGERENCIAS PENDIENTES ──────────────────────────────────────── -->
+  <div class="section">
+    <h3>
+      💡 Sugerencias de clientes
+      <span class="badge" id="suggestionsBadge" style="display:none">0</span>
+    </h3>
+    <div id="suggestionsList"></div>
+  </div>
+ 
+  <!-- ── PLAYLIST ACTIVA ─────────────────────────────────────────────── -->
   <div class="section">
     <h3>Playlist activa</h3>
     <div id="activePlaylist"></div>
   </div>
-
-  <!-- Mis playlists -->
+ 
+  <!-- ── MIS PLAYLISTS ───────────────────────────────────────────────── -->
   <div class="section">
     <h3>Mis playlists</h3>
     <div id="myPlaylists"></div>
   </div>
-
-  <!-- Buscar playlists -->
+ 
+  <!-- ── BUSCAR PLAYLISTS ────────────────────────────────────────────── -->
   <div class="section">
     <h3>Buscar playlists en Spotify</h3>
     <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="Nombre de playlist..." />
+      <input type="text" id="searchInput" placeholder="Nombre de playlist…" />
       <button onclick="searchPlaylists()">Buscar</button>
     </div>
     <div id="searchResults"></div>
   </div>
-
-  <div id="status"></div>
-
-    <!-- Buscar canciones sueltas -->
+ 
+  <!-- ── BUSCAR CANCIONES SUELTAS ────────────────────────────────────── -->
   <div class="section">
     <h3>Agregar canción suelta</h3>
     <div class="search-bar">
-      <input type="text" id="songSearchInput" placeholder="Nombre de canción o artista..." />
+      <input type="text" id="songSearchInput" placeholder="Nombre de canción o artista…" />
       <button onclick="searchSongs()">Buscar</button>
     </div>
     <div id="songSearchResults"></div>
   </div>
-
+ 
+  <div id="status"></div>
+ 
   <script src="/js/admin.js"></script>
-
 </body>
 </html>

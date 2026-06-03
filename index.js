@@ -16,8 +16,6 @@ const redis = new Redis({
  
 let spotifyTokens = { access_token: null, refresh_token: null, expires_at: null }
 let activePlaylist = { id: null, name: null, songs: [] }
- 
-// Peticiones en vuelo — solo en memoria (se limpia sola en milisegundos)
 const pendingRequests = new Set()
  
 async function loadTokens() {
@@ -42,7 +40,7 @@ async function savePlaylist() {
   await redis.set('active_playlist', activePlaylist)
 }
  
-// ─── REQUEST LOG en Upstash ───────────────────────────────────────────────────
+// ─── REQUEST LOG ──────────────────────────────────────────────────────────────
  
 const LIMIT_MS = 15 * 60 * 1000
 const REQUEST_LOG_KEY = 'request_log'
@@ -59,6 +57,51 @@ async function getRequestLog() {
 async function saveRequestLog(log) {
   try {
     await redis.set(REQUEST_LOG_KEY, log)
+  } catch (e) {}
+}
+ 
+// ─── ESTADÍSTICAS DE CANCIONES ────────────────────────────────────────────────
+// Guarda en Redis cuántas veces se ha pedido cada canción
+// Estructura: { trackId: { name, artist, image, count } }
+ 
+async function getSongStats() {
+  try {
+    const saved = await redis.get('song_stats')
+    return saved || {}
+  } catch (e) {
+    return {}
+  }
+}
+ 
+async function incrementSongStat(song) {
+  try {
+    const stats = await getSongStats()
+    if (stats[song.id]) {
+      stats[song.id].count += 1
+    } else {
+      stats[song.id] = { name: song.name, artist: song.artist, image: song.image, count: 1 }
+    }
+    await redis.set('song_stats', stats)
+  } catch (e) {}
+}
+ 
+// ─── SUGERENCIAS ──────────────────────────────────────────────────────────────
+// Guarda en Redis las sugerencias de canciones de los clientes
+// Estructura: [ { id, trackId, name, artist, album, image, clientId, timestamp, status } ]
+// status puede ser: 'pending' | 'accepted' | 'rejected'
+ 
+async function getSuggestions() {
+  try {
+    const saved = await redis.get('suggestions')
+    return saved || []
+  } catch (e) {
+    return []
+  }
+}
+ 
+async function saveSuggestions(suggestions) {
+  try {
+    await redis.set('suggestions', suggestions)
   } catch (e) {}
 }
  
@@ -112,7 +155,6 @@ app.get('/callback', async (req, res) => {
       expires_at: Date.now() + (response.data.expires_in * 1000)
     }
     await saveTokens()
- 
     res.redirect('/admin.html')
   } catch (error) {
     res.send('❌ Algo salió mal. Revisa la terminal.')
@@ -222,7 +264,6 @@ app.post('/admin/activate-playlist', async (req, res) => {
   const { id, name, image } = req.body
   try {
     const token = await getValidToken()
- 
     let songs = []
     let url = `https://api.spotify.com/v1/playlists/${id}/items?limit=50`
  
@@ -246,7 +287,6 @@ app.post('/admin/activate-playlist', async (req, res) => {
     activePlaylist = { id, name, image, songs }
     await savePlaylist()
     res.json({ ok: true, name, total: songs.length })
- 
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -258,7 +298,6 @@ app.post('/admin/add-song', async (req, res) => {
   if (!activePlaylist.id) {
     return res.status(400).json({ error: 'No hay playlist activa. Activa una primero.' })
   }
- 
   if (activePlaylist.songs.find(s => s.id === id)) {
     return res.status(400).json({ error: 'La canción ya está en la lista' })
   }
@@ -272,7 +311,6 @@ app.delete('/admin/remove-song/:id', async (req, res) => {
   if (!activePlaylist.id) {
     return res.status(400).json({ error: 'No hay playlist activa' })
   }
- 
   activePlaylist.songs = activePlaylist.songs.filter(s => s.id !== req.params.id)
   await savePlaylist()
   res.json({ ok: true, total: activePlaylist.songs.length })
@@ -287,6 +325,94 @@ app.get('/admin/active-playlist', (req, res) => {
   })
 })
  
+// ─── ADMIN: ESTADÍSTICAS ──────────────────────────────────────────────────────
+// Devuelve:
+//   - totalRequests: número total de veces que se pidió una canción
+//   - topSongs: array de las 10 canciones más pedidas, ordenadas de mayor a menor
+ 
+app.get('/admin/stats', async (req, res) => {
+  try {
+    const stats = await getSongStats()
+    const songs = Object.values(stats)
+ 
+    // Suma total de todas las peticiones
+    const totalRequests = songs.reduce((acc, s) => acc + s.count, 0)
+ 
+    // Ordena de mayor a menor y toma las 10 primeras
+    const topSongs = songs
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+ 
+    res.json({ totalRequests, topSongs })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+ 
+// ─── ADMIN: SUGERENCIAS ───────────────────────────────────────────────────────
+ 
+// Devuelve todas las sugerencias pendientes
+app.get('/admin/suggestions', async (req, res) => {
+  try {
+    const suggestions = await getSuggestions()
+    // Solo devuelve las pendientes, ordenadas de más reciente a más antigua
+    const pending = suggestions
+      .filter(s => s.status === 'pending')
+      .sort((a, b) => b.timestamp - a.timestamp)
+    res.json(pending)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+ 
+// Acepta una sugerencia: la agrega a la playlist activa y la marca como aceptada
+app.post('/admin/suggestions/:id/accept', async (req, res) => {
+  try {
+    const suggestions = await getSuggestions()
+    const suggestion = suggestions.find(s => s.id === req.params.id)
+ 
+    if (!suggestion) return res.status(404).json({ error: 'Sugerencia no encontrada' })
+    if (!activePlaylist.id) return res.status(400).json({ error: 'No hay playlist activa' })
+ 
+    // Agregar a playlist si no está ya
+    if (!activePlaylist.songs.find(s => s.id === suggestion.trackId)) {
+      activePlaylist.songs.push({
+        id: suggestion.trackId,
+        name: suggestion.name,
+        artist: suggestion.artist,
+        album: suggestion.album || '',
+        image: suggestion.image
+      })
+      await savePlaylist()
+    }
+ 
+    // Marcar como aceptada
+    suggestion.status = 'accepted'
+    await saveSuggestions(suggestions)
+ 
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+ 
+// Rechaza una sugerencia: solo la marca como rechazada
+app.post('/admin/suggestions/:id/reject', async (req, res) => {
+  try {
+    const suggestions = await getSuggestions()
+    const suggestion = suggestions.find(s => s.id === req.params.id)
+ 
+    if (!suggestion) return res.status(404).json({ error: 'Sugerencia no encontrada' })
+ 
+    suggestion.status = 'rejected'
+    await saveSuggestions(suggestions)
+ 
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+ 
 // ─── CLIENTE ──────────────────────────────────────────────────────────────────
  
 app.get('/songs', (req, res) => {
@@ -296,20 +422,16 @@ app.get('/songs', (req, res) => {
 app.post('/queue', async (req, res) => {
   const { id, clientId } = req.body
  
-  // Validar que la canción existe en la lista activa
   if (!activePlaylist.songs.find(s => s.id === id)) {
     return res.status(403).json({ error: 'Canción no permitida' })
   }
  
-  // Usar clientId si viene, si no caer a IP (compatibilidad)
   const identifier = clientId || req.headers['x-forwarded-for'] || req.socket.remoteAddress
  
-  // Verificar que no haya una petición en vuelo para este cliente
   if (pendingRequests.has(identifier)) {
     return res.status(429).json({ error: 'Ya tienes una petición en proceso, espera un momento' })
   }
  
-  // Verificar límite de 15 minutos leyendo desde Upstash
   const now = Date.now()
   const log = await getRequestLog()
  
@@ -320,7 +442,6 @@ app.post('/queue', async (req, res) => {
     })
   }
  
-  // Marcar como en proceso
   pendingRequests.add(identifier)
  
   try {
@@ -331,16 +452,65 @@ app.post('/queue', async (req, res) => {
       { headers: { 'Authorization': `Bearer ${token}` } }
     )
  
-    // Guardar timestamp en Upstash
     log[identifier] = now
     await saveRequestLog(log)
+ 
+    // Registrar estadística de la canción pedida
+    const song = activePlaylist.songs.find(s => s.id === id)
+    if (song) await incrementSongStat(song)
  
     res.json({ ok: true, message: '¡Canción agregada a la cola!' })
   } catch (error) {
     res.status(500).json({ error: 'No se pudo agregar. ¿Spotify está reproduciendo en algún dispositivo?' })
   } finally {
-    // Siempre liberar la petición en vuelo
     pendingRequests.delete(identifier)
+  }
+})
+ 
+// ─── CLIENTE: SUGERIR CANCIÓN ─────────────────────────────────────────────────
+// El cliente puede sugerir una canción buscándola en Spotify.
+// La sugerencia queda en estado 'pending' hasta que el admin la acepte o rechace.
+// Límite: un cliente solo puede tener 1 sugerencia pendiente a la vez.
+ 
+app.post('/suggest', async (req, res) => {
+  const { trackId, name, artist, album, image, clientId } = req.body
+ 
+  if (!trackId || !name || !artist) {
+    return res.status(400).json({ error: 'Datos incompletos' })
+  }
+ 
+  const identifier = clientId || req.headers['x-forwarded-for'] || req.socket.remoteAddress
+ 
+  try {
+    const suggestions = await getSuggestions()
+ 
+    // Verificar que este cliente no tenga ya una sugerencia pendiente
+    const alreadyPending = suggestions.find(
+      s => s.clientId === identifier && s.status === 'pending'
+    )
+    if (alreadyPending) {
+      return res.status(429).json({ error: 'Ya tienes una sugerencia pendiente. Espera a que el admin la revise.' })
+    }
+ 
+    // Crear la sugerencia nueva
+    const newSuggestion = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, // ID único simple
+      trackId,
+      name,
+      artist,
+      album: album || '',
+      image: image || null,
+      clientId: identifier,
+      timestamp: Date.now(),
+      status: 'pending'
+    }
+ 
+    suggestions.push(newSuggestion)
+    await saveSuggestions(suggestions)
+ 
+    res.json({ ok: true, message: '¡Sugerencia enviada! El admin la revisará pronto.' })
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo enviar la sugerencia' })
   }
 })
  
@@ -394,3 +564,4 @@ Promise.all([loadTokens(), loadPlaylist()]).then(() => {
     console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
   })
 })
+ 

@@ -1,80 +1,70 @@
+// ─── ESTADO GLOBAL ────────────────────────────────────────────────────────────
+ 
 let allSongs = []
 let isRequesting = false
-let totalVotes = 0
  
-// ── CLIENT ID ─────────────────────────────────────────────────────────────────
+// ─── IDENTIFICACIÓN DEL CLIENTE ───────────────────────────────────────────────
+// Genera un ID único por dispositivo y lo guarda en localStorage.
+// Sirve para el límite de 15 minutos y para limitar sugerencias pendientes.
+ 
 function getClientId() {
   let id = localStorage.getItem('vianda_client_id')
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem('vianda_client_id', id) }
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem('vianda_client_id', id)
+  }
   return id
 }
  
-// ── INIT ──────────────────────────────────────────────────────────────────────
-loadSongs()
-refreshNowPlaying()
-refreshQueue()
-setInterval(refreshNowPlaying, 15000)
-setInterval(refreshQueue, 20000)
+// ─── CARGA Y RENDER DE CANCIONES ──────────────────────────────────────────────
  
-document.getElementById('searchInput').addEventListener('keydown', e => {
-  if (e.key === 'Escape') { e.target.value = ''; filterSongs() }
-})
- 
-// ── SCROLL A COLA (FAB) ───────────────────────────────────────────────────────
-function scrollToQueue() {
-  document.getElementById('queuePanel').scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
- 
-// ── CANCIONES ─────────────────────────────────────────────────────────────────
 async function loadSongs() {
   try {
     const res = await fetch('/songs')
     allSongs = await res.json()
     renderSongs(allSongs)
   } catch (e) {
-    document.getElementById('songList').innerHTML = '<p class="no-results">Error cargando canciones</p>'
+    document.getElementById('songList').innerHTML = '<p style="color:#888;text-align:center;padding:20px">Error cargando canciones</p>'
   }
 }
  
 function renderSongs(songs) {
-  const container = document.getElementById('songList')
+  const el = document.getElementById('songList')
   if (!songs.length) {
-    container.innerHTML = '<p class="no-results">No hay canciones disponibles</p>'
+    el.innerHTML = '<p style="color:#888;text-align:center;padding:20px">No hay canciones disponibles</p>'
     return
   }
-  container.innerHTML = songs.map((s, i) => {
-    const coverHTML = s.image
-      ? `<img src="${s.image}" alt="${s.name}">`
-      : `<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="rgba(212,164,62,0.3)" stroke-width="1"><path d="M9 19V6l12-3v13M9 19c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2zm12-3c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2z"/></svg>`
-    return `
+  el.innerHTML = songs.map(s => `
     <div class="song-item">
-      <span class="song-num">${String(i + 1).padStart(2, '0')}</span>
-      <div class="song-cover ${s.image ? '' : 'placeholder'}">${coverHTML}</div>
-      <div class="song-info">
-        <p class="song-title">${s.name}</p>
-        <p class="song-artist">${s.artist}</p>
+      ${s.image ? `<img class="s-img" src="${s.image}" alt="${s.name}">` : '<div class="s-img s-img-ph">♪</div>'}
+      <div class="s-info">
+        <div class="s-name">${s.name}</div>
+        <div class="s-artist">${s.artist}</div>
       </div>
-      <button class="req-btn" data-id="${s.id}" onclick="addToQueue('${s.id}', this)">
-        <span>+ Pedir</span>
-      </button>
-    </div>`
-  }).join('')
+      <button class="req-btn" onclick="addToQueue('${s.id}', this)">+ Pedir</button>
+    </div>
+  `).join('')
 }
  
 function filterSongs() {
   const q = document.getElementById('searchInput').value.toLowerCase().trim()
-  renderSongs(q
-    ? allSongs.filter(s => s.name.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q))
-    : allSongs)
+  if (!q) { renderSongs(allSongs); return }
+  const filtered = allSongs.filter(s =>
+    s.name.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)
+  )
+  renderSongs(filtered)
 }
  
-// ── PEDIR CANCIÓN ─────────────────────────────────────────────────────────────
+// ─── PEDIR CANCIÓN ────────────────────────────────────────────────────────────
+ 
 async function addToQueue(id, btn) {
   if (isRequesting) return
   isRequesting = true
-  const allBtns = document.querySelectorAll('.req-btn')
-  allBtns.forEach(b => b.disabled = true)
-  btn.querySelector('span').textContent = '…'
+ 
+  // Deshabilitar todos los botones mientras dura la petición
+  document.querySelectorAll('.req-btn').forEach(b => b.disabled = true)
+  const original = btn.textContent
+  btn.textContent = '…'
  
   try {
     const res = await fetch('/queue', {
@@ -83,100 +73,209 @@ async function addToQueue(id, btn) {
       body: JSON.stringify({ id, clientId: getClientId() })
     })
     const data = await res.json()
-    if (res.ok) {
+ 
+    if (data.ok) {
+      btn.textContent = '✓'
       btn.classList.add('done')
-      btn.querySelector('span').textContent = '✓ Pedida'
-      totalVotes++
-      document.getElementById('totalVotes').textContent = totalVotes
-      showToast('🎵 ¡Canción agregada a la cola!')
+      showToast('¡Canción agregada a la cola! 🎵')
+      // Actualizar cola luego de 2 segundos
       setTimeout(refreshQueue, 2000)
     } else {
-      btn.querySelector('span').textContent = '+ Pedir'
+      btn.textContent = original
       showToast(data.error, true)
     }
   } catch (e) {
-    btn.querySelector('span').textContent = '+ Pedir'
+    btn.textContent = original
     showToast('Error de conexión', true)
   } finally {
     isRequesting = false
-    allBtns.forEach(b => { if (!b.classList.contains('done')) b.disabled = false })
+    document.querySelectorAll('.req-btn:not(.done)').forEach(b => b.disabled = false)
   }
 }
  
-// ── NOW PLAYING ───────────────────────────────────────────────────────────────
+// ─── NOW PLAYING ──────────────────────────────────────────────────────────────
+ 
 async function refreshNowPlaying() {
   try {
     const res = await fetch('/now-playing')
     const data = await res.json()
-    const titleEl  = document.getElementById('nowTitle')
+    const titleEl = document.getElementById('nowTitle')
     const artistEl = document.getElementById('nowArtist')
-    const imgEl    = document.getElementById('nowImg')
+    const imgEl = document.getElementById('nowImg')
+    const block = document.getElementById('nowBlock')
+ 
     if (data.playing && data.name) {
-      titleEl.textContent  = data.name
+      titleEl.textContent = data.name
       artistEl.textContent = data.artist
-      if (data.image) { imgEl.src = data.image; imgEl.style.display = 'block' }
+      if (data.image) {
+        imgEl.src = data.image
+        imgEl.style.display = 'block'
+      }
+      block.classList.add('is-playing')
     } else {
-      titleEl.textContent  = 'Sin reproducción activa'
+      titleEl.textContent = 'Sin reproducción'
       artistEl.textContent = '—'
-      imgEl.style.display  = 'none'
+      imgEl.style.display = 'none'
+      block.classList.remove('is-playing')
     }
   } catch (e) {}
 }
  
-// ── COLA ──────────────────────────────────────────────────────────────────────
+// ─── COLA ─────────────────────────────────────────────────────────────────────
+ 
 async function refreshQueue() {
   try {
     const res = await fetch('/queue-list')
     const items = await res.json()
- 
-    const ul       = document.getElementById('queueList')
-    const countEl  = document.getElementById('queueCount')
-    const qCountEl = document.getElementById('qCount')
+    const el = document.getElementById('queueList')
+    const countEl = document.getElementById('queueCount')
     const fabCount = document.getElementById('fabCount')
+    const qCount = document.getElementById('qCount')
+ 
+    countEl.textContent = items.length || '—'
+    if (fabCount) fabCount.textContent = items.length > 0 ? items.length : ''
+    if (qCount) qCount.textContent = items.length
  
     if (!items.length) {
-      ul.innerHTML = '<li class="qi-empty">La cola está vacía</li>'
-      countEl.textContent = '—'
-      qCountEl.textContent = '0'
-      fabCount.textContent = ''
-      fabCount.classList.remove('visible')
+      el.innerHTML = '<li class="qi-empty">La cola está vacía</li>'
       return
     }
  
-    countEl.textContent  = items.length + (items.length === 1 ? ' canción' : ' canciones')
-    qCountEl.textContent = items.length
-    // FAB badge
-    fabCount.textContent = items.length > 9 ? '9+' : items.length
-    fabCount.classList.add('visible')
- 
-    // ──────────────────────────────────────────────────────────────────────────
-    // FIX: La API de Spotify /me/player/queue devuelve en "queue" las canciones
-    // que vienen DESPUÉS de la que suena ahora. El item[0] es la SIGUIENTE,
-    // no la actual. Por eso NINGÚN item de la lista recibe el badge "Ahora"
-    // ni las ondas animadas — eso lo muestra el bloque "Now Playing" arriba.
-    // ──────────────────────────────────────────────────────────────────────────
-    ul.innerHTML = items.map((s, i) => {
-      const artHTML = s.image
-        ? `<img src="${s.image}" alt="">`
-        : `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="rgba(212,164,62,0.3)" stroke-width="1"><path d="M9 19V6l12-3v13M9 19c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2zm12-3c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2z"/></svg>`
-      return `
+    el.innerHTML = items.map(track => `
       <li class="qi">
-        <span class="qi-num">${i + 1}</span>
-        <div class="qi-art ${s.image ? '' : 'placeholder'}">${artHTML}</div>
+        ${track.image ? `<img src="${track.image}" alt="${track.name}">` : '<div class="qi-ph">♪</div>'}
         <div class="qi-info">
-          <p class="qi-t">${s.name}</p>
-          <p class="qi-a">${s.artist}</p>
+          <div class="qi-name">${track.name}</div>
+          <div class="qi-artist">${track.artist}</div>
         </div>
-      </li>`
-    }).join('')
+      </li>
+    `).join('')
   } catch (e) {}
 }
  
-// ── TOAST ─────────────────────────────────────────────────────────────────────
-function showToast(msg, isError = false) {
-  const t = document.getElementById('toastEl')
-  t.textContent = msg
-  t.className = isError ? 'toast error show' : 'toast show'
-  clearTimeout(t._timer)
-  t._timer = setTimeout(() => t.classList.remove('show'), 2800)
+function scrollToQueue() {
+  document.getElementById('queuePanel')?.scrollIntoView({ behavior: 'smooth' })
 }
+ 
+// ─── MODAL DE SUGERENCIAS ─────────────────────────────────────────────────────
+// El cliente puede buscar una canción en Spotify y sugerirla al admin.
+// Flujo: abrir modal → buscar → seleccionar → enviar sugerencia
+ 
+let suggestSearchResults = []
+ 
+function openSuggestModal() {
+  document.getElementById('suggestModal').classList.add('open')
+  document.getElementById('suggestSearchInput').focus()
+  document.getElementById('suggestResults').innerHTML = ''
+  document.getElementById('suggestSearchInput').value = ''
+  document.getElementById('suggestStatus').textContent = ''
+}
+ 
+function closeSuggestModal() {
+  document.getElementById('suggestModal').classList.remove('open')
+}
+ 
+// Buscar canciones en Spotify (usa el mismo endpoint del admin)
+async function searchSuggestSongs() {
+  const q = document.getElementById('suggestSearchInput').value.trim()
+  if (!q) return
+ 
+  const el = document.getElementById('suggestResults')
+  el.innerHTML = '<p class="suggest-loading">Buscando…</p>'
+ 
+  try {
+    const res = await fetch(`/admin/search?q=${encodeURIComponent(q)}`)
+    const tracks = await res.json()
+    suggestSearchResults = tracks
+ 
+    if (!tracks.length) {
+      el.innerHTML = '<p class="suggest-empty">No se encontraron canciones.</p>'
+      return
+    }
+ 
+    el.innerHTML = tracks.map((t, i) => `
+      <div class="suggest-track" onclick="selectSuggestTrack(${i})">
+        ${t.image ? `<img src="${t.image}" alt="${t.name}">` : '<div class="s-img-ph">♪</div>'}
+        <div class="suggest-track-info">
+          <div class="suggest-track-name">${t.name}</div>
+          <div class="suggest-track-artist">${t.artist} · ${t.album}</div>
+        </div>
+        <span class="suggest-select-btn">Sugerir</span>
+      </div>
+    `).join('')
+  } catch (e) {
+    el.innerHTML = '<p class="suggest-empty">Error buscando canciones.</p>'
+  }
+}
+ 
+// Envía la sugerencia seleccionada al servidor
+async function selectSuggestTrack(index) {
+  const track = suggestSearchResults[index]
+  if (!track) return
+ 
+  const statusEl = document.getElementById('suggestStatus')
+  statusEl.textContent = 'Enviando sugerencia…'
+  statusEl.className = 'suggest-status'
+ 
+  try {
+    const res = await fetch('/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        trackId: track.id,
+        name: track.name,
+        artist: track.artist,
+        album: track.album,
+        image: track.image,
+        clientId: getClientId()
+      })
+    })
+    const data = await res.json()
+ 
+    if (data.ok) {
+      statusEl.textContent = '✓ ' + data.message
+      statusEl.className = 'suggest-status ok'
+      // Cerrar el modal después de 2 segundos
+      setTimeout(closeSuggestModal, 2000)
+    } else {
+      statusEl.textContent = data.error
+      statusEl.className = 'suggest-status error'
+    }
+  } catch (e) {
+    statusEl.textContent = 'Error de conexión'
+    statusEl.className = 'suggest-status error'
+  }
+}
+ 
+// Cerrar modal al hacer click fuera
+document.addEventListener('click', e => {
+  const modal = document.getElementById('suggestModal')
+  if (modal && e.target === modal) closeSuggestModal()
+})
+ 
+// Buscar con Enter en el modal
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('suggestSearchInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchSuggestSongs()
+  })
+})
+ 
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+ 
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toastEl')
+  el.textContent = msg
+  el.className = 'toast show' + (isError ? ' error' : '')
+  setTimeout(() => el.classList.remove('show'), 2800)
+}
+ 
+// ─── POLLING ──────────────────────────────────────────────────────────────────
+ 
+setInterval(refreshNowPlaying, 15000)
+setInterval(refreshQueue, 20000)
+ 
+// ─── INICIO ───────────────────────────────────────────────────────────────────
+ 
+loadSongs()
+refreshNowPlaying()
+refreshQueue()

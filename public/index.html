@@ -10,11 +10,11 @@
 <link rel="stylesheet" href="/css/client.css">
 </head>
 <body>
-
+ 
 <div class="bg-warm"></div>
-
+ 
 <div class="app">
-
+ 
   <!-- HEADER -->
   <header class="header">
     <div class="header-brand">
@@ -34,7 +34,7 @@
         <div class="brand-sub">Café de Especialidad · Bogotá</div>
       </div>
     </div>
-
+ 
     <div class="header-right">
       <a class="soc-link" href="https://www.instagram.com/viandaandcoffee?igsh=MTR6emgxZHNpcWowMQ==" target="_blank" title="Instagram">
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -49,7 +49,7 @@
       </div>
     </div>
   </header>
-
+ 
   <!-- SEARCH BAR -->
   <div class="search-bar-row">
     <div class="search-wrap">
@@ -58,11 +58,21 @@
       </svg>
       <input type="text" id="searchInput" placeholder="Buscar canción o artista…" oninput="filterSongs()"/>
     </div>
+ 
+    <!-- BOTÓN SUGERIR CANCIÓN -->
+    <button class="suggest-btn" onclick="openSuggestModal()" title="Sugerir una canción al DJ">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="16"/>
+        <line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      <span>Sugerir</span>
+    </button>
   </div>
-
+ 
   <!-- MAIN -->
   <main class="main">
-
+ 
     <!-- NOW PLAYING -->
     <div class="now-block" id="nowBlock">
       <div class="now-inner">
@@ -79,7 +89,7 @@
         <img class="now-img" id="nowImg" src="" alt="" style="display:none"/>
       </div>
     </div>
-
+ 
     <!-- ORNAMENT -->
     <div class="orn">
       <div class="orn-line"></div>
@@ -88,15 +98,15 @@
       <div class="orn-diamond"></div>
       <div class="orn-line"></div>
     </div>
-
+ 
     <!-- SONGS -->
     <div class="song-list" id="songList"></div>
-
+ 
   </main>
-
+ 
   <!-- RIGHT PANEL -->
   <aside class="panel" id="queuePanel">
-
+ 
     <!-- QUEUE -->
     <div class="panel-section">
       <div class="panel-head">
@@ -110,9 +120,9 @@
         <li class="qi-empty">La cola está vacía</li>
       </ul>
     </div>
-
+ 
     <div class="panel-divider"></div>
-
+ 
     <!-- SOCIAL -->
     <div class="social-section">
       <p class="social-title">Encuéntranos en</p>
@@ -139,9 +149,9 @@
         </a>
       </div>
     </div>
-
+ 
   </aside>
-
+ 
   <!-- FOOTER -->
   <footer class="footer">
     <span class="f-left"><strong>Vianda &amp; Coffee</strong> · Bogotá</span>
@@ -150,10 +160,10 @@
       <div class="fstat"><span class="fstat-n" id="qCount">0</span><span class="fstat-l">en cola</span></div>
     </div>
   </footer>
-
+ 
 </div>
-
-<!-- BOTÓN FLOTANTE VER COLA (solo móvil) -->
+ 
+<!-- FAB VER COLA (solo móvil) -->
 <button class="fab-queue" id="fabQueue" onclick="scrollToQueue()">
   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
     <line x1="8" y1="6" x2="21" y2="6"/>
@@ -166,9 +176,37 @@
   <span>Ver cola</span>
   <span class="fab-count" id="fabCount"></span>
 </button>
-
+ 
+<!-- MODAL SUGERIR CANCIÓN ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="suggestModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Sugerir canción</div>
+      <p class="modal-sub">Busca una canción y el admin la puede agregar al repertorio</p>
+      <button class="modal-close" onclick="closeSuggestModal()">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+ 
+    <div class="modal-search">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" id="suggestSearchInput" placeholder="Buscar canción o artista en Spotify…"/>
+      <button onclick="searchSuggestSongs()">Buscar</button>
+    </div>
+ 
+    <div id="suggestStatus" class="suggest-status"></div>
+    <div id="suggestResults" class="suggest-results"></div>
+  </div>
+</div>
+ 
 <div class="toast" id="toastEl"></div>
-
+ 
 <script src="/js/client.js"></script>
 </body>
 </html>
+ 
