@@ -1,3 +1,4 @@
+
 // ─── ESTADO GLOBAL ────────────────────────────────────────────────────────────
  
 let allSongs = []
@@ -151,25 +152,8 @@ async function refreshQueue() {
       nextEl.textContent = 'Sin canciones en cola'
     }
  
-    // Cola completa: solo si hay más de 1 canción en cola
-    const rest = items.slice(1)
-    if (rest.length > 0) {
-      fullSection.style.display = 'block'
-      const countEl = document.getElementById('queueCount')
-      if (countEl) countEl.textContent = rest.length
-      const el = document.getElementById('queueList')
-      el.innerHTML = rest.map(track => `
-        <li class="qi">
-          ${track.image ? `<img src="${track.image}" alt="${track.name}">` : '<div class="qi-ph">♪</div>'}
-          <div class="qi-info">
-            <div class="qi-name">${track.name}</div>
-            <div class="qi-artist">${track.artist}</div>
-          </div>
-        </li>
-      `).join('')
-    } else {
-      fullSection.style.display = 'none'
-    }
+    // Cola completa siempre oculta
+    if (fullSection) fullSection.style.display = 'none'
   } catch (e) {}
 }
  
