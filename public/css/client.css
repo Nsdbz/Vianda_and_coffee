@@ -463,6 +463,29 @@ body::after {
 .qi-artist { font-size: .7rem; color: var(--text2); }
 .qi-empty  { font-size: .78rem; color: var(--text4); list-style: none; }
  
+.next-track {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  background: rgba(51,32,16,.3);
+  border: 1px solid var(--gold-b);
+  border-radius: 8px;
+}
+ 
+.next-track img {
+  width: 36px;
+  height: 36px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+ 
+.next-track-empty {
+  font-size: .78rem;
+  color: var(--text4);
+}
+ 
 .panel-divider {
   height: 1px;
   background: var(--gold-b);

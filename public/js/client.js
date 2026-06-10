@@ -127,29 +127,49 @@ async function refreshQueue() {
   try {
     const res = await fetch('/queue-list')
     const items = await res.json()
-    const el = document.getElementById('queueList')
-    const countEl = document.getElementById('queueCount')
+    const fullSection = document.getElementById('fullQueueSection')
+    const nextEl = document.getElementById('nextTrack')
     const fabCount = document.getElementById('fabCount')
     const qCount = document.getElementById('qCount')
  
-    countEl.textContent = items.length || '—'
     if (fabCount) fabCount.textContent = items.length > 0 ? items.length : ''
     if (qCount) qCount.textContent = items.length
  
-    if (!items.length) {
-      el.innerHTML = '<li class="qi-empty">La cola está vacía</li>'
-      return
+    // Bloque "Próxima": siempre muestra queue[0]
+    if (items.length > 0) {
+      const next = items[0]
+      nextEl.className = 'qi next-track'
+      nextEl.innerHTML = `
+        ${next.image ? `<img src="${next.image}" alt="${next.name}">` : '<div class="qi-ph">♪</div>'}
+        <div class="qi-info">
+          <div class="qi-name">${next.name}</div>
+          <div class="qi-artist">${next.artist}</div>
+        </div>
+      `
+    } else {
+      nextEl.className = 'next-track-empty'
+      nextEl.textContent = 'Sin canciones en cola'
     }
  
-    el.innerHTML = items.map(track => `
-      <li class="qi">
-        ${track.image ? `<img src="${track.image}" alt="${track.name}">` : '<div class="qi-ph">♪</div>'}
-        <div class="qi-info">
-          <div class="qi-name">${track.name}</div>
-          <div class="qi-artist">${track.artist}</div>
-        </div>
-      </li>
-    `).join('')
+    // Cola completa: solo si hay más de 1 canción en cola
+    const rest = items.slice(1)
+    if (rest.length > 0) {
+      fullSection.style.display = 'block'
+      const countEl = document.getElementById('queueCount')
+      if (countEl) countEl.textContent = rest.length
+      const el = document.getElementById('queueList')
+      el.innerHTML = rest.map(track => `
+        <li class="qi">
+          ${track.image ? `<img src="${track.image}" alt="${track.name}">` : '<div class="qi-ph">♪</div>'}
+          <div class="qi-info">
+            <div class="qi-name">${track.name}</div>
+            <div class="qi-artist">${track.artist}</div>
+          </div>
+        </li>
+      `).join('')
+    } else {
+      fullSection.style.display = 'none'
+    }
   } catch (e) {}
 }
  
