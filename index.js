@@ -42,7 +42,7 @@ async function savePlaylist() {
  
 // ─── REQUEST LOG ──────────────────────────────────────────────────────────────
  
-const LIMIT_MS = 15 * 60 * 1000
+const LIMIT_MS = 5 * 60 * 1000
 const REQUEST_LOG_KEY = 'request_log'
  
 async function getRequestLog() {
