@@ -1,4 +1,3 @@
-
 // ─── ESTADO GLOBAL ────────────────────────────────────────────────────────────
  
 let allSongs = []
@@ -47,13 +46,106 @@ function renderSongs(songs) {
   `).join('')
 }
  
+// ─── BÚSQUEDA INTELIGENTE (normalización + tokens + fuzzy + scoring) ──────────
+// 1) Normaliza texto: quita tildes, minúsculas, limpia signos.
+// 2) Compara por tokens (palabras), no por substring completo → el orden no importa.
+// 3) Si una palabra no aparece exacta, prueba fuzzy (distancia de Levenshtein)
+//    para tolerar errores de tipeo.
+// 4) Da un puntaje a cada canción y ordena los mejores resultados primero.
+
+function normalizeText(str) {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos
+    .replace(/[^a-z0-9\s]/g, ' ')                       // quita signos de puntuación
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Distancia de Levenshtein (mínimo de ediciones para convertir a en b)
+function levenshtein(a, b) {
+  const la = a.length, lb = b.length
+  if (la === 0) return lb
+  if (lb === 0) return la
+  let prevRow = new Array(lb + 1)
+  for (let j = 0; j <= lb; j++) prevRow[j] = j
+
+  for (let i = 1; i <= la; i++) {
+    const currRow = [i]
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      currRow[j] = Math.min(
+        prevRow[j] + 1,      // eliminación
+        currRow[j - 1] + 1,  // inserción
+        prevRow[j - 1] + cost // sustitución
+      )
+    }
+    prevRow = currRow
+  }
+  return prevRow[lb]
+}
+
+// ¿Qué tan bien matchea una palabra de búsqueda (token) contra una palabra del texto?
+// Devuelve un puntaje > 0 si hay match aceptable, o 0 si no hay match.
+function tokenMatchScore(token, word) {
+  if (!token || !word) return 0
+  if (word === token) return 100                 // coincidencia exacta
+  if (word.startsWith(token)) return 80           // empieza igual (autocompletado natural)
+  if (word.includes(token)) return 60             // está contenida en algún lugar
+
+  // Fuzzy: tolera typos, pero solo en palabras razonablemente parecidas en longitud
+  const maxLen = Math.max(token.length, word.length)
+  if (maxLen < 3) return 0 // palabras muy cortas: evita falsos positivos
+  const dist = levenshtein(token, word)
+  const allowedErrors = token.length <= 4 ? 1 : token.length <= 7 ? 2 : 3
+  if (dist <= allowedErrors) {
+    return Math.max(10, 50 - dist * 15) // mientras menos errores, mejor puntaje
+  }
+  return 0
+}
+
+// Puntaje total de una canción contra la consulta completa.
+// Cada palabra escrita por el usuario debe encontrar AL MENOS una buena
+// coincidencia en el nombre o el artista (así "rhapsody bohemian" encuentra
+// "Bohemian Rhapsody" sin importar el orden de las palabras).
+function scoreSong(song, queryTokens) {
+  const nameNorm = normalizeText(song.name)
+  const artistNorm = normalizeText(song.artist)
+  const nameWords = nameNorm.split(' ').filter(Boolean)
+  const artistWords = artistNorm.split(' ').filter(Boolean)
+
+  let total = 0
+
+  for (const qt of queryTokens) {
+    let best = 0
+
+    // Bonus extra si el título completo empieza exactamente con el query token
+    if (nameNorm.startsWith(qt)) best = Math.max(best, 90)
+
+    for (const w of nameWords) best = Math.max(best, tokenMatchScore(qt, w))
+    for (const w of artistWords) best = Math.max(best, tokenMatchScore(qt, w) * 0.85) // artista pesa un poco menos que el título
+
+    if (best === 0) return 0 // si una palabra del query no matchea nada, la canción queda descartada
+    total += best
+  }
+
+  return total
+}
+
 function filterSongs() {
-  const q = document.getElementById('searchInput').value.toLowerCase().trim()
+  const raw = document.getElementById('searchInput').value
+  const q = normalizeText(raw)
+
   if (!q) { renderSongs(allSongs); return }
-  const filtered = allSongs.filter(s =>
-    s.name.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)
-  )
-  renderSongs(filtered)
+
+  const queryTokens = q.split(' ').filter(Boolean)
+
+  const scored = allSongs
+    .map(song => ({ song, score: scoreSong(song, queryTokens) }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+
+  renderSongs(scored.map(item => item.song))
 }
  
 // ─── PEDIR CANCIÓN ────────────────────────────────────────────────────────────
