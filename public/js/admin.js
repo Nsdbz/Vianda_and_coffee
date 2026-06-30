@@ -4,12 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
   loadActivePlaylist()
   loadMyPlaylists()
   loadStats()
+  loadDailyStats()
   loadSuggestions()
  
   // Refresca sugerencias cada 30 segundos automáticamente
   setInterval(loadSuggestions, 30000)
   // Refresca stats cada 60 segundos
   setInterval(loadStats, 60000)
+  // Refresca actividad diaria cada 60 segundos
+  setInterval(loadDailyStats, 60000)
 })
  
 // ─── PLAYLIST ACTIVA ──────────────────────────────────────────────────────────
@@ -130,6 +133,77 @@ async function addSong(id, name, artist, album, image) {
   }
 }
  
+// ─── ACTIVIDAD DIARIA ─────────────────────────────────────────────────────────
+// Muestra, por día, cuántas canciones se pidieron, cuántas visitas tuvo la
+// página, visitantes únicos y la tasa de conversión (visitantes que pidieron
+// al menos una canción).
+
+async function loadDailyStats() {
+  try {
+    const res = await fetch('/admin/daily-stats?days=14')
+    const days = await res.json()
+    const el = document.getElementById('dailyStats')
+
+    if (!days.length || days.every(d => d.requests === 0 && d.visits === 0)) {
+      el.innerHTML = '<p class="empty-msg">Aún no hay actividad registrada.</p>'
+      return
+    }
+
+    // Máximo entre pedidas y visitas, para que ambas barras compartan la misma escala
+    const max = Math.max(1, ...days.map(d => Math.max(d.requests, d.visits)))
+
+    // Totales del período visible
+    const totalRequests = days.reduce((acc, d) => acc + d.requests, 0)
+    const totalVisits = days.reduce((acc, d) => acc + d.visits, 0)
+
+    el.innerHTML = `
+      <div class="daily-summary">
+        <div class="daily-summary-item">
+          <span class="daily-summary-num daily-num-requests">${totalRequests}</span>
+          <span class="daily-summary-label">pedidas en total</span>
+        </div>
+        <div class="daily-summary-item">
+          <span class="daily-summary-num daily-num-visits">${totalVisits}</span>
+          <span class="daily-summary-label">visitas en total</span>
+        </div>
+      </div>
+      <div class="daily-legend">
+        <span class="daily-legend-item"><span class="daily-dot dot-requests"></span>Pedidas</span>
+        <span class="daily-legend-item"><span class="daily-dot dot-visits"></span>Visitas</span>
+      </div>
+      ${days.map(d => `
+        <div class="daily-row">
+          <div class="daily-date">${formatDayLabel(d.date)}</div>
+          <div class="daily-bars">
+            <div class="daily-bar-track">
+              <div class="daily-bar bar-requests" style="width:${Math.round((d.requests / max) * 100)}%"></div>
+            </div>
+            <div class="daily-bar-track">
+              <div class="daily-bar bar-visits" style="width:${Math.round((d.visits / max) * 100)}%"></div>
+            </div>
+          </div>
+          <div class="daily-numbers">
+            <span class="daily-num daily-num-requests">${d.requests}</span>
+            <span class="daily-num daily-num-visits">${d.visits}</span>
+            <span class="daily-num daily-num-unique" title="Visitantes únicos">${d.uniqueVisitors}👤</span>
+            <span class="daily-num daily-num-conv" title="Tasa de conversión: visitantes que pidieron una canción">${d.conversionRate}%</span>
+          </div>
+        </div>
+      `).join('')}
+    `
+  } catch (e) {
+    document.getElementById('dailyStats').innerHTML = '<p class="empty-msg">Error cargando actividad diaria.</p>'
+  }
+}
+
+// Convierte "YYYY-MM-DD" a una etiqueta corta tipo "lun 30"
+function formatDayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const dayName = date.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '')
+  return `${dayName} ${d}`
+}
+
 // ─── ESTADÍSTICAS ─────────────────────────────────────────────────────────────
 // Muestra el total de peticiones y el top 10 de canciones más pedidas.
  

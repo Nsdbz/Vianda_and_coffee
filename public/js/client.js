@@ -15,6 +15,16 @@ function getClientId() {
   }
   return id
 }
+
+// Registra una visita a la página (para las estadísticas del admin).
+// No bloquea ni afecta nada visible; si falla, no pasa nada.
+function registerVisit() {
+  fetch('/visit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId: getClientId() })
+  }).catch(() => {})
+}
  
 // ─── CARGA Y RENDER DE CANCIONES ──────────────────────────────────────────────
  
@@ -375,3 +385,4 @@ setInterval(refreshQueue, 20000)
 loadSongs()
 refreshNowPlaying()
 refreshQueue()
+registerVisit()

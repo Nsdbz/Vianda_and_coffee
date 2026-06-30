@@ -384,4 +384,132 @@ h3 {
   flex-shrink: 0;
 }
  
+/* ─── ACTIVIDAD DIARIA ───────────────────────────────────────────────────────── */
+
+.daily-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.daily-summary-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-summary-num {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.daily-summary-label {
+  font-size: 0.7rem;
+  color: #aaa;
+}
+
+.daily-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 14px;
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.daily-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daily-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-requests { background: #1DB954; }
+.dot-visits { background: #4A9FE0; }
+
+.daily-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.daily-row:last-child { border-bottom: none; }
+
+.daily-date {
+  font-size: 0.75rem;
+  color: #aaa;
+  text-transform: capitalize;
+}
+
+.daily-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.daily-bar-track {
+  background: #2a2a2a;
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.daily-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+  min-width: 3px;
+}
+
+.bar-requests { background: linear-gradient(90deg, #1DB954, #17a349); }
+.bar-visits { background: linear-gradient(90deg, #4A9FE0, #3a82c0); }
+
+.daily-numbers {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.daily-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: right;
+}
+
+.daily-num-requests { color: #1DB954; }
+.daily-num-visits { color: #4A9FE0; }
+.daily-num-unique { color: #aaa; font-weight: 400; }
+.daily-num-conv {
+  color: #000;
+  background: #2a2a2a;
+  color: #FFD166;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  min-width: 38px;
+}
+
+@media (max-width: 480px) {
+  .daily-row {
+    grid-template-columns: 40px 1fr;
+    grid-template-areas: "date bars" "nums nums";
+    row-gap: 6px;
+  }
+  .daily-date { grid-area: date; }
+  .daily-bars { grid-area: bars; }
+  .daily-numbers { grid-area: nums; justify-content: flex-start; }
+}
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }

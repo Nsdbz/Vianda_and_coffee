@@ -85,6 +85,50 @@ async function incrementSongStat(song) {
   } catch (e) {}
 }
  
+// ─── ESTADÍSTICAS DIARIAS ──────────────────────────────────────────────────────
+// Guarda en Redis, por día, cuántas canciones se pidieron, cuántas visitas
+// recibió la página y qué clientIds únicos entraron ese día.
+// Estructura: { "YYYY-MM-DD": { requests: N, visits: N, uniqueVisitors: [clientId, ...] } }
+// La fecha se calcula en hora de Bogotá para que el "día" coincida con el horario del local.
+
+function getBogotaDateKey(date = new Date()) {
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }) // 'en-CA' => YYYY-MM-DD
+}
+
+async function getDailyStats() {
+  try {
+    const saved = await redis.get('daily_stats')
+    return saved || {}
+  } catch (e) {
+    return {}
+  }
+}
+
+async function saveDailyStats(stats) {
+  try {
+    await redis.set('daily_stats', stats)
+  } catch (e) {}
+}
+
+async function incrementDailyRequests() {
+  const stats = await getDailyStats()
+  const key = getBogotaDateKey()
+  if (!stats[key]) stats[key] = { requests: 0, visits: 0, uniqueVisitors: [] }
+  stats[key].requests += 1
+  await saveDailyStats(stats)
+}
+
+async function registerVisit(clientId) {
+  const stats = await getDailyStats()
+  const key = getBogotaDateKey()
+  if (!stats[key]) stats[key] = { requests: 0, visits: 0, uniqueVisitors: [] }
+  stats[key].visits += 1
+  if (clientId && !stats[key].uniqueVisitors.includes(clientId)) {
+    stats[key].uniqueVisitors.push(clientId)
+  }
+  await saveDailyStats(stats)
+}
+
 // ─── SUGERENCIAS ──────────────────────────────────────────────────────────────
 // Guarda en Redis las sugerencias de canciones de los clientes
 // Estructura: [ { id, trackId, name, artist, album, image, clientId, timestamp, status } ]
@@ -349,6 +393,48 @@ app.get('/admin/stats', async (req, res) => {
   }
 })
  
+// ─── ADMIN: ESTADÍSTICAS DIARIAS ──────────────────────────────────────────────
+// Devuelve los últimos N días (por defecto 14) con:
+//   - requests: canciones pedidas ese día
+//   - visits: cantidad de veces que se cargó la página
+//   - uniqueVisitors: cantidad de clientIds distintos que entraron ese día
+//   - conversionRate: % de visitantes únicos que llegaron a pedir al menos una canción
+// Rellena con ceros los días sin actividad para que el gráfico no tenga huecos.
+
+app.get('/admin/daily-stats', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 14
+    const stats = await getDailyStats()
+
+    const result = []
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const key = getBogotaDateKey(d)
+      const day = stats[key] || { requests: 0, visits: 0, uniqueVisitors: [] }
+      const uniqueCount = day.uniqueVisitors.length
+
+      // Tasa de conversión: de los visitantes únicos del día, cuántos terminaron pidiendo
+      // al menos una canción (aproximado por el mínimo entre pedidas y visitantes únicos).
+      const conversionRate = uniqueCount > 0
+        ? Math.round((Math.min(day.requests, uniqueCount) / uniqueCount) * 100)
+        : 0
+
+      result.push({
+        date: key,
+        requests: day.requests,
+        visits: day.visits,
+        uniqueVisitors: uniqueCount,
+        conversionRate
+      })
+    }
+
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // ─── ADMIN: SUGERENCIAS ───────────────────────────────────────────────────────
  
 // Devuelve todas las sugerencias pendientes
@@ -418,6 +504,17 @@ app.post('/admin/suggestions/:id/reject', async (req, res) => {
 app.get('/songs', (req, res) => {
   res.json(activePlaylist.songs)
 })
+
+// Registra una visita a la página del cliente (para estadísticas diarias)
+app.post('/visit', async (req, res) => {
+  const { clientId } = req.body || {}
+  try {
+    await registerVisit(clientId)
+    res.json({ ok: true })
+  } catch (e) {
+    res.json({ ok: false })
+  }
+})
  
 app.post('/queue', async (req, res) => {
   const { id, clientId } = req.body
@@ -458,6 +555,7 @@ app.post('/queue', async (req, res) => {
     // Registrar estadística de la canción pedida
     const song = activePlaylist.songs.find(s => s.id === id)
     if (song) await incrementSongStat(song)
+    await incrementDailyRequests()
  
     res.json({ ok: true, message: '¡Canción agregada a la cola!' })
   } catch (error) {
@@ -564,4 +662,3 @@ Promise.all([loadTokens(), loadPlaylist()]).then(() => {
     console.log(`Admin: http://127.0.0.1:${process.env.PORT}/auth/login\n`)
   })
 })
- 
